@@ -11,5 +11,7 @@ build/
 
 *.tif
 *.png
+# Exception
+!examples/*.png
 *.shp
 *.gpkg
