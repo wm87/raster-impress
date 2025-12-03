@@ -1,0 +1,46 @@
+.TH RASTER-IMPRESS 1 "2025-12-03" "Raster Impress CLI by Matthias W."
+.SH NAME
+raster-impress \- CLI tool for raster analysis
+.SH SYNOPSIS
+raster-impress [file] [--stats] [--histogram [output.tif]] [--ndvi [output.tif]] [--slope [output.tif]] [--hillshade [output.tif]] [--metadata] [--quality] [--silent] [--version]
+.SH DESCRIPTION
+Raster Impress CLI analyzes raster data (GeoTIFF, NetCDF, HDF5). Computes statistics, histogram, NDVI, slope, hillshade, metadata, and quality check.
+All output files are generated automatically if no output filename is provided; default filenames are derived from the input raster (e.g., raster_slope.tif, raster_ndvi.tif).
+.SH OPTIONS
+.TP
+\-\-stats
+Compute basic raster statistics (min, max, mean, stddev)
+.TP
+\-\-histogram [output.tif]
+Compute histogram of raster values. Optional output filename; default adds '_hist.tif' to input raster. Also generates a PNG plot.
+.TP
+\-\-ndvi [output.tif]
+Compute NDVI (requires at least 2 bands). Optional output filename; default adds '_ndvi.tif' to input raster. Also generates a PNG plot.
+.TP
+\-\-slope [output.tif]
+Compute slope (DEM required). Optional output filename; default adds '_slope.tif' to input raster. Also generates a PNG plot.
+.TP
+\-\-hillshade [output.tif]
+Compute hillshade (DEM required). Optional output filename; default adds '_hillshade.tif' to input raster. Also generates a PNG plot.
+.TP
+\-\-metadata
+Show raster metadata (width, height, bands, CRS, transform, nodata values)
+.TP
+\-\-quality
+Perform quality check on raster bands (NoData pixels, shape consistency)
+.TP
+\-\-silent
+Suppress log output
+.TP
+\-\-version
+Show CLI version
+.SH EXAMPLES
+Compute slope, NDVI, and histogram with default output filenames:
+.nf
+raster-impress raster.tif --slope --ndvi --histogram
+.fi
+
+Compute slope and NDVI with custom output filenames:
+.nf
+raster-impress raster.tif --slope output/myslope.tif --ndvi output/myndvi.tif
+.fi

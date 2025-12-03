@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "raster_impress"
+version = "0.1.0"
+description = "Raster analysis CLI"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "rasterio",
+    "numpy",
+    "matplotlib",
+    "rasterstats",
+]
+
+[project.scripts]
+raster-impress = "raster_impress.cli:main"
