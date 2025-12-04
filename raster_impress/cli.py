@@ -8,7 +8,7 @@ from raster_impress.raster_analysis import (
     compute_histogram,
     compute_ndvi,
     compute_slope,
-    compute_hillshade,
+    compute_hillshade_auto,
     print_metadata,
     quality_check,
 )
@@ -105,7 +105,7 @@ def main():
     # ----------------------------
     if args.hillshade is not None or "--hillshade" in sys.argv:
         hill_file = args.hillshade or f"{input_path.stem}_hillshade.tif"
-        results["hillshade"] = compute_hillshade(
+        results["hillshade"] = compute_hillshade_auto(
             str(input_path), output_tif=hill_file, verbose=not args.silent
         )
 

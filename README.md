@@ -128,28 +128,26 @@ options:
 ```bash
 
 # Vollanalyse mit allen Funktionen ohne Speicherpfad
-raster-impress dop20rgb_33316_5690_2_sn.tif --stats --histogram --ndvi --slope --hillshade --metadata --quality
+raster-impress raster.tif --stats --histogram --ndvi --slope --hillshade --metadata --quality
 
-# Analyse von Slope und NDVI mit und ohne Speicherpfad
-raster-impress dop20rgb_33316_5690_2_sn.tif --slope output/myslope.tif --ndvi output/myndvi.tif
-raster-impress dop20rgb_33316_5690_2_sn.tif --slope --ndvi
+# Einzelanalyse
+raster-impress dem.tif --slope
+raster-impress dem.tif --hillshade
+raster-impress raster.tif --ndvi
 ```
 
-# Beispiele
+## Beispiele
 
-![Screenshot slope](examples/slope.png)
-![Screenshot ndvi](examples/ndvi.png)
-![Screenshot hist](examples/histogramm.png)
-![Screenshot hill](examples/hillshade.png)
-
+| Beschriftung | Bild                                       |
+|--------------|--------------------------------------------|
+| Slope        | ![Screenshot slope](examples/slope.png)    |
+| Hillshade    | ![Screenshot hill](examples/hillshade.png) |
+| NDVI         | ![Screenshot ndvi](examples/ndvi.png)      |
 
 ## Datenquelle
 
-Genutzete-DOP-Daten:
-https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/QQFLq6nkoSnqB5g/?accept=zip&files
-
-Die verwendeten Rasterdaten stammen aus dem amtlichen Digitalen Orthophoto (DOP) des Freistaates Sachsen:  
-[Downloadbereich DOP](https://www.geodaten.sachsen.de/downloadbereich-dop-4826.html)
+Offene Geodaten des Freistaates Sachsen:
+[Downloadbereich Offene Geodaten](https://www.geodaten.sachsen.de/index.html)
 
 Lizenz: Datenlizenz Deutschland – Namensnennung – Version 2.0  
 © Staatsbetrieb Geobasisinformation und Vermessung Sachsen (GeoSN)
