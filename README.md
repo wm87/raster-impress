@@ -1,7 +1,26 @@
 # Raster Impress CLI
 
-**Raster Impress CLI** ist ein Kommandozeilen-Tool für die Analyse von Rasterdaten (GeoTIFF, NetCDF, HDF5) unter Linux/macOS.
-Es liefert **Statistiken, Histogramme, NDVI, Slope, Hillshade, Zonal Stats und Visualisierung** und lässt sich direkt als CLI verwenden.
+**Raster Impress CLI** ist ein Kommandozeilen-Tool für die Analyse von Rasterdaten (z.B. GeoTIFF) unter Linux.
+
+Es liefert:
+
+* 📊 Statistiken
+    
+* 📈 Histogramme
+
+* 🌱 NDVI (Vegetationsindex)
+    
+* 🏔️ Slope (Hangneigung)
+    
+* 🌄 Hillshade (Schummerung)
+    
+* 🗺️ Relief (synthetisch)
+    
+* 🧾 Metadaten
+    
+* ✅ Qualitätsprüfung
+
+Alle Funktionen lassen sich direkt über die CLI ausführen. Dabei lassen sich GeoTIFF's und kleine Vorschau-Plots generieren.
 
 ---
 
