@@ -1,10 +1,11 @@
 import logging
-import os
 from typing import Optional, Dict, List
-
-import matplotlib.pyplot as plt
+import os
 import numpy as np
 import rasterio
+import matplotlib.pyplot as plt
+from matplotlib.colors import LightSource
+from PIL import Image
 from rasterstats import zonal_stats
 
 logger = logging.getLogger("raster_impress")
@@ -166,162 +167,139 @@ def compute_ndvi(filepath: str, output_tif: Optional[str] = None, verbose: bool 
     }
 
 # ----------------------------
-# Slope
+# 1) Slope berechnen
 # ----------------------------
-def compute_slope(filepath: str, output_tif: Optional[str] = None, verbose: bool = True) -> Dict[str, object]:
+def compute_slope(filepath: str, output_tif: str = None, verbose: bool = True) -> dict:
+
     with rasterio.open(filepath) as src:
-        dem = src.read(1).astype(np.float32)
+        height = src.read(1).astype(float)
+        profile = src.profile.copy()
         transform = src.transform
-        meta = src.meta.copy()
-        xres = transform.a
-        yres = -transform.e
 
-    dzdx = np.gradient(dem, axis=1) / xres
-    dzdy = np.gradient(dem, axis=0) / yres
-    slope = np.arctan(np.sqrt(dzdx**2 + dzdy**2)) * 180 / np.pi
+    height[height <= -9999] = np.nan
+    res_x = transform.a
+    res_y = -transform.e
 
+    # Slope berechnen
+    dy, dx = np.gradient(height, res_y, res_x)
+    slope_rad = np.arctan(np.sqrt(dx**2 + dy**2))
+    slope_deg = np.degrees(slope_rad)
+    slope_norm = (slope_deg - np.nanmin(slope_deg)) / (np.nanmax(slope_deg) - np.nanmin(slope_deg))
+
+    # Dateinamen festlegen, falls None
+    prefix = os.path.splitext(filepath)[0]
+    png_file = prefix + "_slope.png"
     if output_tif is None:
-        output_tif = os.path.splitext(filepath)[0] + "_slope.tif"
-    meta.update(dtype=rasterio.float32, count=1)
-    with rasterio.open(output_tif, "w", **meta) as dst:
-        dst.write(slope, 1)
+        output_tif = prefix + "_slope.tif"
 
-    plot_file = os.path.splitext(output_tif)[0] + ".png"
-    plt.figure(figsize=(12, 8))
-    plt.imshow(slope, cmap="terrain")
-    plt.colorbar(label="Slope [deg]")
-    plt.title("Slope")
-    plt.tight_layout()
-    plt.savefig(plot_file, dpi=300)
-    plt.close()
+    # PNG speichern
+    Image.fromarray((slope_norm * 255).astype(np.uint8)).save(png_file)
+
+    # GeoTIFF speichern
+    profile.update(dtype="float32", count=1)
+    with rasterio.open(output_tif, "w", **profile) as dst:
+        dst.write(slope_deg.astype(np.float32), 1)
+
     if verbose:
-        logger.info("Slope saved to %s, plot saved to %s", output_tif, plot_file)
+        print(f"Slope gespeichert: {png_file}, {output_tif}")
 
-    return {"slope": slope, "tif": output_tif, "plot": plot_file}
-
+    return {"slope_deg": slope_deg, "png": png_file, "tif": output_tif}
 
 # ----------------------------
-# Hillshade
+# 2) Hillshade berechnen
 # ----------------------------
-def compute_hillshade(filepath: str, output_tif: Optional[str] = None,
-                      azimuth: float = 315, altitude: float = 30,
-                      gamma: float = 0.9,
-                      enhance_slope: bool = True,
-                      verbose: bool = True) -> Dict[str, object]:
+def compute_hillshade(filepath: str, output_tif: str = None, azimuth: float = 315, altitude: float = 45, verbose: bool = True) -> dict:
 
-    # DEM einlesen
     with rasterio.open(filepath) as src:
-        dem = src.read(1).astype(np.float32)
+        height = src.read(1).astype(float)
+        profile = src.profile.copy()
         transform = src.transform
-        meta = src.meta.copy()
-        xres = transform.a
-        yres = -transform.e
 
-    # Gradienten berechnen
-    dzdx = np.gradient(dem, axis=1) / xres
-    dzdy = np.gradient(dem, axis=0) / yres
-    slope_rad = np.arctan(np.sqrt(dzdx**2 + dzdy**2))
-    aspect_rad = np.arctan2(dzdy, -dzdx)
+    height[height <= -9999] = np.nan
+    res_x = transform.a
+    res_y = -transform.e
 
+    ls = LightSource(azdeg=azimuth, altdeg=altitude)
+    hillshade = ls.hillshade(height, vert_exag=2.0, dx=res_x, dy=res_y)
+
+    prefix = os.path.splitext(filepath)[0]
+    png_file = prefix + "_hillshade.png"
+    if output_tif is None:
+        output_tif = prefix + "_hillshade.tif"
+
+    Image.fromarray((hillshade * 255).astype(np.uint8)).save(png_file)
+
+    profile.update(dtype="uint8", count=1)
+    with rasterio.open(output_tif, "w", **profile) as dst:
+        dst.write((hillshade * 255).astype(np.uint8), 1)
+
+    if verbose:
+        print(f"Hillshade gespeichert: {png_file}, {output_tif}")
+
+    return {"hillshade": hillshade, "png": png_file, "tif": output_tif}
+
+# ----------------------------
+# 3) Plastisches Relief berechnen
+# ----------------------------
+def compute_relief(filepath: str, output_tif: str = None, verbose: bool = True) -> dict:
+
+    # -------------------------
+    # DEM laden
+    # -------------------------
+    with rasterio.open(filepath) as src:
+        dem = src.read(1).astype(float)
+        profile = src.profile.copy()
+        transform = src.transform
+
+    dem = np.where(dem <= -9999, np.nan, dem)
+    res_x = transform.a
+    res_y = -transform.e
+
+    # -------------------------
     # Hillshade berechnen
-    az_rad = np.radians(azimuth)
-    alt_rad = np.radians(altitude)
-    hillshade = np.sin(alt_rad) * np.sin(slope_rad) + \
-                np.cos(alt_rad) * np.cos(slope_rad) * np.cos(az_rad - aspect_rad)
+    # -------------------------
+    ls = LightSource(azdeg=315, altdeg=45)
+    hillshade = ls.hillshade(dem, vert_exag=2.0, dx=res_x, dy=res_y)
 
-    # Optional: Hangneigung zur Verstärkung hinzufügen
-    if enhance_slope:
-        hillshade = hillshade * 0.6 + (slope_rad / np.pi) * 0.4
+    # -------------------------
+    # Relieffarbe (terrain)
+    # -------------------------
+    h_min, h_max = np.nanmin(dem), np.nanmax(dem)
+    dem_norm = (dem - h_min) / (h_max - h_min)
+    cmap = plt.cm.terrain
+    relief_color = cmap(dem_norm)[:, :, :3]
 
-    # Normalisieren auf 0–1
-    hillshade = (hillshade - hillshade.min()) / (hillshade.max() - hillshade.min())
+    # Plastisches Relief = Farbe × Hillshade
+    relief = relief_color * hillshade[..., np.newaxis]
+    relief_uint8 = (relief * 255).astype(np.uint8)
 
-    # Gamma-Korrektur
-    hillshade = np.power(hillshade, gamma)
-
-    # Auf 0–255 skalieren für TIFF
-    hillshade_uint8 = (hillshade * 255).astype(np.uint8)
-
-    # TIFF speichern
+    # -------------------------
+    # Dateipfade
+    # -------------------------
+    prefix = os.path.splitext(filepath)[0]
+    png_file = prefix + "_relief_plastisch.png"
     if output_tif is None:
-        output_tif = os.path.splitext(filepath)[0] + "_hillshade.tif"
-    meta.update(dtype=rasterio.uint8, count=1)
-    with rasterio.open(output_tif, "w", **meta) as dst:
-        dst.write(hillshade_uint8, 1)
+        output_tif = prefix + "_relief_plastisch.tif"
 
-    # PNG-Plot speichern (identisch zum TIFF)
-    plot_file = os.path.splitext(output_tif)[0] + ".png"
-    plt.figure(figsize=(12, 8))
-    plt.imshow(hillshade_uint8, cmap="gray")
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig(plot_file, dpi=300, bbox_inches='tight', pad_inches=0)
-    plt.close()
+    # -------------------------
+    # PNG speichern
+    # -------------------------
+    Image.fromarray(relief_uint8).save(png_file)
+
+    # -------------------------
+    # GeoTIFF speichern (RGB)
+    # -------------------------
+    profile.update(dtype="uint8", count=3)
+    with rasterio.open(output_tif, "w", **profile) as dst:
+        dst.write(relief_uint8[:, :, 0], 1)
+        dst.write(relief_uint8[:, :, 1], 2)
+        dst.write(relief_uint8[:, :, 2], 3)
 
     if verbose:
-        logger.info("Hillshade saved to %s, plot saved to %s", output_tif, plot_file)
+        print(f"Relief gespeichert: {png_file}, {output_tif}")
 
-    return {"hillshade": hillshade_uint8, "tif": output_tif, "plot": plot_file}
+    return {"relief_png": png_file, "relief_tif": output_tif, "relief_array": relief}
 
-def compute_hillshade_auto(filepath: str, output_tif: Optional[str] = None,
-                           azimuth: float = 315, altitude: float = 30,
-                           verbose: bool = True) -> Dict[str, object]:
-
-    # DEM einlesen
-    with rasterio.open(filepath) as src:
-        dem = src.read(1).astype(np.float32)
-        transform = src.transform
-        meta = src.meta.copy()
-        xres = transform.a
-        yres = -transform.e
-
-    # Gradienten berechnen
-    dzdx = np.gradient(dem, axis=1) / xres
-    dzdy = np.gradient(dem, axis=0) / yres
-    slope_rad = np.arctan(np.sqrt(dzdx**2 + dzdy**2))
-    aspect_rad = np.arctan2(dzdy, -dzdx)
-
-    # Hillshade berechnen
-    az_rad = np.radians(azimuth)
-    alt_rad = np.radians(altitude)
-    hillshade = np.sin(alt_rad) * np.sin(slope_rad) + \
-                np.cos(alt_rad) * np.cos(slope_rad) * np.cos(az_rad - aspect_rad)
-
-    # Automatische Verstärkung: Hangneigung einbeziehen
-    hillshade = hillshade * 0.6 + (slope_rad / np.pi) * 0.4
-
-    # Werte auf 0–1 normalisieren
-    hillshade = (hillshade - np.min(hillshade)) / (np.max(hillshade) - np.min(hillshade))
-
-    # Automatischer Gamma-Boost basierend auf Histogramm
-    # Idee: je kleiner der Kontrast, desto stärker Gamma < 1
-    contrast = np.percentile(hillshade, 95) - np.percentile(hillshade, 5)
-    gamma = np.clip(0.5 + 0.5 * contrast, 0.6, 0.9)  # kleiner Kontrast -> Gamma kleiner
-    hillshade = np.power(hillshade, gamma)
-
-    # Auf 0–255 skalieren
-    hillshade_uint8 = (hillshade * 255).astype(np.uint8)
-
-    # TIFF speichern
-    if output_tif is None:
-        output_tif = os.path.splitext(filepath)[0] + "_hillshade.tif"
-    meta.update(dtype=rasterio.uint8, count=1)
-    with rasterio.open(output_tif, "w", **meta) as dst:
-        dst.write(hillshade_uint8, 1)
-
-    # PNG-Plot speichern (identisch zum TIFF)
-    plot_file = os.path.splitext(output_tif)[0] + ".png"
-    plt.figure(figsize=(12, 8))
-    plt.imshow(hillshade_uint8, cmap="gray")
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig(plot_file, dpi=300, bbox_inches='tight', pad_inches=0)
-    plt.close()
-
-    if verbose:
-        logger.info("Auto Hillshade saved to %s, plot saved to %s (gamma=%.2f)", output_tif, plot_file, gamma)
-
-    return {"hillshade": hillshade_uint8, "tif": output_tif, "plot": plot_file, "gamma": gamma}
 # ----------------------------
 # Metadata
 # ----------------------------
@@ -345,7 +323,6 @@ def print_metadata(filepath: str, verbose: bool = True) -> Dict:
     if verbose:
         logger.info("Metadata: %s", metadata)
     return metadata
-
 
 # ----------------------------
 # Quality Check
@@ -376,7 +353,6 @@ def quality_check(filepath: str, verbose: bool = True) -> List[Dict]:
                     )
             results.append(result)
     return results
-
 
 # ----------------------------
 # Zonal Stats

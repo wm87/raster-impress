@@ -2,9 +2,9 @@
 .SH NAME
 raster-impress \- CLI tool for raster analysis
 .SH SYNOPSIS
-raster-impress [file] [--stats] [--histogram [output.tif]] [--ndvi [output.tif]] [--slope [output.tif]] [--hillshade [output.tif]] [--metadata] [--quality] [--silent] [--version]
+raster-impress [file] [--stats] [--histogram [output.tif]] [--ndvi [output.tif]] [--slope [output.tif]] [--hillshade [output.tif]] [--relief [output_prefix]] [--metadata] [--quality] [--silent] [--version]
 .SH DESCRIPTION
-Raster Impress CLI analyzes raster data (GeoTIFF, NetCDF, HDF5). Computes statistics, histogram, NDVI, slope, hillshade, metadata, and quality check.
+Raster Impress CLI analyzes raster data (GeoTIFF, NetCDF, HDF5). Computes statistics, histogram, NDVI, slope, hillshade, relief, metadata, and quality check.
 All output files are generated automatically if no output filename is provided; default filenames are derived from the input raster (e.g., raster_slope.tif, raster_ndvi.tif).
 .SH OPTIONS
 .TP
@@ -12,22 +12,25 @@ All output files are generated automatically if no output filename is provided; 
 Compute basic raster statistics (min, max, mean, stddev)
 .TP
 \-\-histogram [output.tif]
-Compute histogram of raster values. Optional output filename; default adds '_hist.tif' to input raster. Also generates a PNG plot.
+Compute Histogram of raster values. Optional output filename; default adds '_hist.tif' to input raster. Also generates a PNG plot.
 .TP
 \-\-ndvi [output.tif]
 Compute NDVI (requires at least 2 bands). Optional output filename; default adds '_ndvi.tif' to input raster. Also generates a PNG plot.
 .TP
 \-\-slope [output.tif]
-Compute slope (DEM required). Optional output filename; default adds '_slope.tif' to input raster. Also generates a PNG plot.
+Compute Slope (DEM required). Optional output filename; default adds '_slope.tif' to input raster. Also generates a PNG plot.
 .TP
 \-\-hillshade [output.tif]
-Compute hillshade (DEM required). Optional output filename; default adds '_hillshade.tif' to input raster. Also generates a PNG plot.
+Compute Hillshade (DEM required). Optional output filename; default adds '_hillshade.tif' to input raster. Also generates a PNG plot.
+.TP
+\-\-relief [output.tif]
+Compute color Relief with hillshade overlay (DEM required). Optional output filename; default adds '_relief' to input raster.
 .TP
 \-\-metadata
-Show raster metadata (width, height, bands, CRS, transform, nodata values)
+Show raster Metadata (width, height, bands, CRS, transform, nodata values)
 .TP
 \-\-quality
-Perform quality check on raster bands (NoData pixels, shape consistency)
+Perform quality Check on raster bands (NoData pixels, shape consistency)
 .TP
 \-\-silent
 Suppress log output
@@ -43,4 +46,14 @@ raster-impress raster.tif --slope --ndvi --histogram
 Compute slope and NDVI with custom output filenames:
 .nf
 raster-impress raster.tif --slope output/myslope.tif --ndvi output/myndvi.tif
+.fi
+
+Compute relief with default output prefix:
+.nf
+raster-impress raster.tif --relief
+.fi
+
+Compute relief with custom output prefix:
+.nf
+raster-impress raster.tif --relief output/myrelief
 .fi

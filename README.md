@@ -133,6 +133,8 @@ raster-impress raster.tif --stats --histogram --ndvi --slope --hillshade --metad
 # Einzelanalyse
 raster-impress dem.tif --slope
 raster-impress dem.tif --hillshade
+raster-impress dem.tif --relief
+
 raster-impress raster.tif --ndvi
 ```
 
@@ -142,6 +144,7 @@ raster-impress raster.tif --ndvi
 |--------------|--------------------------------------------|
 | Slope        | ![Screenshot slope](examples/slope.png)    |
 | Hillshade    | ![Screenshot hill](examples/hillshade.png) |
+| Relief       | ![Screenshot relief](examples/relief.png)  |
 | NDVI         | ![Screenshot ndvi](examples/ndvi.png)      |
 
 ## Datenquelle
