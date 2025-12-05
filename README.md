@@ -153,17 +153,18 @@ raster-impress dem.tif --slope
 raster-impress dem.tif --hillshade
 raster-impress dem.tif --relief
 
-raster-impress raster.tif --ndvi
+raster-impress dop.tif --ndvi
 ```
 
 ## Beispiele
 
-| Beschriftung | Bild                                       |
-|--------------|--------------------------------------------|
-| Slope        | ![Screenshot slope](examples/slope.png)    |
-| Hillshade    | ![Screenshot hill](examples/hillshade.png) |
-| Relief       | ![Screenshot relief](examples/relief.png)  |
-| NDVI         | ![Screenshot ndvi](examples/ndvi.png)      |
+| Beschriftung   | Bild                                       |
+|----------------|--------------------------------------------|
+| Slope          | ![Screenshot slope](examples/slope.png)    |
+| Hillshade      | ![Screenshot hill](examples/hillshade.png) |
+| Relief         | ![Screenshot relief](examples/relief.png)  |
+| NDVI City      | ![Screenshot ndvi](examples/ndvi.png)      |
+| NDVI Landscape | ![Screenshot ndvi2](examples/ndvi2.png)    |
 
 ## Datenquelle
 

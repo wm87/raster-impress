@@ -76,73 +76,59 @@ def compute_histogram(
 # NDVI
 # ----------------------------
 def compute_ndvi(filepath: str, output_tif: Optional[str] = None, verbose: bool = True) -> Dict[str, object]:
+    """
+    Berechnet NDVI aus einem RGbI-Raster und speichert ein farbiges GeoTIFF + PNG.
+    Farbpalette: dunkelrot -> dunkelgrün.
+    """
     # -------------------------------
-    # 1) Raster laden
+    # 1) Raster laden (Rot + NIR)
     # -------------------------------
     with rasterio.open(filepath) as src:
-        if src.count < 4:
-            raise ValueError("Raster benötigt mindestens 4 Bänder: Rot, Grün, Blau, Infrarot")
-
-        red = src.read(1).astype(np.float32)  # Rotband (Band 1)
-        green = src.read(2).astype(np.float32)  # Grünband (Band 2)
-        blue = src.read(3).astype(np.float32)  # Blauband (Band 3)
-        nir = src.read(4).astype(np.float32)  # Infrarotband (Band 4)
-
-        meta = src.meta.copy()
+        r = src.read(1).astype(np.float32)   # Rotband
+        nir = src.read(4).astype(np.float32) # NIR-Band
+        profile = src.profile.copy()
 
     # -------------------------------
-    # 2) Werte skalieren (0-1)
+    # 2) NDVI berechnen (sicher)
     # -------------------------------
-    for band in [red, green, blue, nir]:
-        band /= band.max()  # Normierung auf den Bereich 0-1
+    mask = (nir + r) == 0
+    ndvi = np.empty_like(r, dtype=np.float32)
+    ndvi[~mask] = (nir[~mask] - r[~mask]) / (nir[~mask] + r[~mask])
+    ndvi[mask] = np.nan
+    ndvi = np.clip(ndvi, -1, 1)
 
     # -------------------------------
-    # 3) NDVI berechnen
+    # 3) NDVI in RGB umwandeln
     # -------------------------------
-    denominator = nir + red
-    denominator[denominator == 0] = np.nan  # Verhindert Division durch Null
-    ndvi = (nir - red) / denominator
-    ndvi = np.nan_to_num(ndvi)  # NaN-Werte durch 0 ersetzen
+    rgb = np.zeros((ndvi.shape[0], ndvi.shape[1], 3), dtype=np.uint8)
+
+    nan_mask = np.isnan(ndvi)
+    mask0 = ndvi < 0
+    mask1 = (ndvi >= 0) & (ndvi < 0.2)
+    mask2 = (ndvi >= 0.2) & (ndvi < 0.4)
+    mask3 = (ndvi >= 0.4) & (ndvi < 0.6)
+    mask4 = ndvi >= 0.6
+
+    rgb[nan_mask] = [0, 0, 0]        # schwarz
+    rgb[mask0] = [165, 0, 38]        # dunkelrot
+    rgb[mask1] = [255, 69, 0]        # rot-orange
+    rgb[mask2] = [255, 255, 0]       # gelb
+    rgb[mask3] = [173, 255, 47]      # hellgrün
+    rgb[mask4] = [0, 100, 0]         # dunkelgrün
 
     # -------------------------------
-    # 4) Dynamische Schwellenwerte für Landbedeckung bestimmen (Quantile)
-    # -------------------------------
-    ndvi_forest_thresh = np.quantile(ndvi, 0.75)  # 75% Quantil für Wald
-    ndvi_grass_thresh = np.quantile(ndvi, 0.5)  # 50% Quantil für Wiese/Gras
-    ndvi_crop_thresh_low = 0.2  # Niedriger Schwellenwert für Acker
-    ndvi_crop_thresh_high = 0.4  # Hoher Schwellenwert für Acker
-
-    # -------------------------------
-    # 5) Masken erstellen
-    # -------------------------------
-    forest_mask = (ndvi > ndvi_forest_thresh)
-    grass_mask = (ndvi > ndvi_grass_thresh) & (ndvi <= ndvi_forest_thresh)
-    crop_mask = (ndvi > ndvi_crop_thresh_low) & (ndvi <= ndvi_crop_thresh_high) & (~forest_mask) & (~grass_mask)
-    rock_mask = ~(forest_mask | grass_mask | crop_mask)
-
-    # -------------------------------
-    # 6) RGB-Farben zuweisen
-    # -------------------------------
-    h, w = ndvi.shape
-    rgb = np.zeros((h, w, 3), dtype=np.uint8)
-    rgb[forest_mask] = [0, 180, 0]  # Grün für Wald
-    rgb[grass_mask] = [255, 255, 0]  # Gelb für Wiese
-    rgb[crop_mask] = [210, 180, 140]  # Hellbraun für Acker
-    rgb[rock_mask] = [100, 100, 100]  # Dunkelgrau für Felsen/Berge
-
-    # -------------------------------
-    # 7) GeoTIFF speichern
+    # 4) GeoTIFF speichern
     # -------------------------------
     if output_tif is None:
-        output_tif = os.path.splitext(filepath)[0] + "_landcover_v5.tif"
+        output_tif = os.path.splitext(filepath)[0] + "_ndvi_color.tif"
 
-    meta.update(dtype=rasterio.uint8, count=3)  # 3 Bänder für RGB
-    with rasterio.open(output_tif, "w", **meta) as dst:
-        for i in range(3):  # 3 Bänder (RGB)
+    profile.update(count=3, dtype=rasterio.uint8)
+    with rasterio.open(output_tif, "w", **profile) as dst:
+        for i in range(3):
             dst.write(rgb[:, :, i], i + 1)
 
     # -------------------------------
-    # 8) PNG speichern
+    # 5) PNG speichern
     # -------------------------------
     png_path = os.path.splitext(output_tif)[0] + ".png"
     plt.figure(figsize=(12, 8))
@@ -153,11 +139,11 @@ def compute_ndvi(filepath: str, output_tif: Optional[str] = None, verbose: bool 
     plt.close()
 
     if verbose:
-        print("TIF saved:", output_tif)
-        print("PNG saved:", png_path)
+        print(f"✔ Farbiges NDVI GeoTIFF gespeichert: {output_tif}")
+        print(f"✔ NDVI PNG gespeichert: {png_path}")
 
     # -------------------------------
-    # 9) Rückgabe
+    # 6) Rückgabe
     # -------------------------------
     return {
         "ndvi": ndvi,
@@ -367,3 +353,4 @@ def compute_zonal_stats(raster_path: str, vector_path: str,
         for i, zone in enumerate(zs):
             logger.info("Zone %d: %s", i, zone["properties"])
     return zs
+
