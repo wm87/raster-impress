@@ -85,8 +85,9 @@ pytest tests -v
 
 ```bash
 raster-impress --help
-usage: raster-impress [-h] [--stats] [--histogram [HISTOGRAM]] [--ndvi [NDVI]] [--slope [SLOPE]]
-                      [--hillshade [HILLSHADE]] [--metadata] [--quality] [--silent] [--version]
+
+usage: raster-impress [-h] [--stats] [--histogram [HISTOGRAM]] [--ndvi [NDVI]] [--slope [SLOPE]] [--hillshade [HILLSHADE]]
+                      [--relief [RELIEF]] [--metadata] [--quality] [--silent] [--version]
                       filepath
 
 Raster analysis tool with automatic TIF and plot generation
@@ -98,14 +99,12 @@ options:
   -h, --help            show this help message and exit
   --stats               Compute basic statistics
   --histogram [HISTOGRAM]
-                        Compute histogram. Optional output filename; default adds '_hist.tif' to input raster
-  --ndvi [NDVI]         Compute NDVI (requires at least 2 bands). Optional output filename; default adds '_ndvi.tif'
-                        to input raster
-  --slope [SLOPE]       Compute slope (DEM required). Optional output filename; default adds '_slope.tif' to input
-                        raster
+                        Compute histogram. Optional output filename
+  --ndvi [NDVI]         Compute NDVI (requires at least 2 bands). Optional output filename
+  --slope [SLOPE]       Compute Slope (DEM required). Optional output filename
   --hillshade [HILLSHADE]
-                        Compute hillshade (DEM required). Optional output filename; default adds '_hillshade.tif' to
-                        input raster
+                        Compute Hillshade (DEM required). Optional output filename
+  --relief [RELIEF]     Compute synthetic Relief (DEM required). Optional output filename
   --metadata            Show raster metadata
   --quality             Perform quality check
   --silent              Suppress log output
