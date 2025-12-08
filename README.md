@@ -103,10 +103,10 @@ pytest tests -v
 ## CLI-Parameter
 
 ```bash
-raster-impress --help
-
-usage: raster-impress [-h] [--stats] [--histogram [HISTOGRAM]] [--ndvi [NDVI]] [--slope [SLOPE]] [--hillshade [HILLSHADE]]
-                      [--relief [RELIEF]] [--metadata] [--quality] [--silent] [--version]
+usage: raster-impress [-h] [--stats] [--histogram [HISTOGRAM]] [--ndvi [NDVI]] 
+                      [--slope [SLOPE]] [--hillshade [HILLSHADE]]
+                      [--relief [RELIEF]] [--metadata] [--quality] [--extract DSM DGM]
+                      [--silent] [--version]
                       filepath
 
 Raster analysis tool with automatic TIF and plot generation
@@ -126,8 +126,10 @@ options:
   --relief [RELIEF]     Compute synthetic Relief (DEM required). Optional output filename
   --metadata            Show raster metadata
   --quality             Perform quality check
+  --extract DSM DGM     Extract features: vegetation, impervious surfaces and buildings
+  --output OUTPUT       Specify output folder for results (default: current directory)
   --silent              Suppress log output
-  --version             show program's version number and exit
+  --version             Show program's version number and exit
 ```
 
 ## CI/CD Pipeline (GitHub Actions)
@@ -145,26 +147,28 @@ options:
 
 ```bash
 
-# Vollanalyse mit allen Funktionen ohne Speicherpfad
-raster-impress raster.tif --stats --histogram --ndvi --slope --hillshade --metadata --quality
+# Multi-Analyse
+raster-impress dem.tif --slope --hillshade --relief --metadata --quality
 
-# Einzelanalyse
-raster-impress dem.tif --slope
-raster-impress dem.tif --hillshade
-raster-impress dem.tif --relief
+# Einzel-Analyse
+raster-impress dem.tif --slope --output test
+raster-impress dem.tif --hillshade --output test
+raster-impress dem.tif --relief --output test
 
-raster-impress dop.tif --ndvi
+raster-impress dop.tif --ndvi --output test
+raster-impress dop.tif --extract dsm.tif dem.tif --output test
 ```
 
 ## Beispiele
 
-| Beschriftung   | Bild                                       |
-|----------------|--------------------------------------------|
-| Slope          | ![Screenshot slope](examples/slope.png)    |
-| Hillshade      | ![Screenshot hill](examples/hillshade.png) |
-| Relief         | ![Screenshot relief](examples/relief.png)  |
-| NDVI City      | ![Screenshot ndvi](examples/ndvi.png)      |
-| NDVI Landscape | ![Screenshot ndvi2](examples/ndvi2.png)    |
+| Beschriftung    | Bild                                        |
+|-----------------|---------------------------------------------|
+| Slope           | ![Screenshot slope](examples/slope.png)     |
+| Hillshade       | ![Screenshot hill](examples/hillshade.png)  |
+| Relief          | ![Screenshot relief](examples/relief.png)   |
+| NDVI City       | ![Screenshot ndvi](examples/ndvi.png)       |
+| NDVI Landscape  | ![Screenshot ndvi2](examples/ndvi2.png)     |
+| Extraction      | ![Screenshot extr](examples/extraction.png) |
 
 ## Datenquelle
 

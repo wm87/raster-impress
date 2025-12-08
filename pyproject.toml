@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=65", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "raster_impress"
-version = "0.1.0"
+version = "0.2.0"
 description = "Raster analysis CLI"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,7 +13,14 @@ dependencies = [
     "numpy",
     "matplotlib",
     "rasterstats",
+    "scipy",
+    "shapely",
+    "fiona",
 ]
 
 [project.scripts]
 raster-impress = "raster_impress.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["raster_impress*"]
