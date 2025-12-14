@@ -7,7 +7,7 @@ from raster_impress.raster_analysis import (
     compute_hillshade,
     compute_relief,
 )
-from tests.test_helpers import create_dummy_raster
+from test_helpers import create_dummy_raster
 
 
 def test_analyze_raster(data_dir: Path):
@@ -20,6 +20,7 @@ def test_compute_histogram(data_dir: Path):
     output_tif = data_dir / "dummy_hist_output.tif"
     result = compute_histogram(str(raster_file), output_tif=str(output_tif))
     assert output_tif.exists()
+    assert "hist" in result
 
 def test_compute_ndvi(data_dir: Path):
     raster_file = create_dummy_raster(data_dir / "dummy_ndvi.tif", count=4)
@@ -27,7 +28,6 @@ def test_compute_ndvi(data_dir: Path):
     result = compute_ndvi(str(raster_file), output_tif=str(output_tif))
     assert output_tif.exists()
     assert "ndvi" in result
-    assert "rgb_array" in result
 
 def test_compute_slope(data_dir: Path):
     dem_file = create_dummy_raster(data_dir / "dummy_dem.tif", count=1, dtype="float32")

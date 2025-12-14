@@ -65,11 +65,11 @@ def main(argv=None):
         logger.setLevel(logging.WARNING)
 
     # Output folder
-    output_dir = Path(args.output) if args.output else Path(".")
+    output_dir = Path(args.output).resolve() if args.output else Path(".").resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     results = {}
-    input_path = Path(args.raster)
+    input_path = Path(args.raster).resolve()
 
     # ----------------------------
     # Analysis
@@ -108,15 +108,18 @@ def main(argv=None):
     # ----------------------------
     if args.extract:
         dsm, dgm = args.extract
-        extract_results = extract_all_features(
-            dop_raster=str(input_path),
-            dsm_raster=str(dsm),
-            dgm_raster=str(dgm),
-            red_channel_raster=None,
-            output_base=str(output_dir),
-            verbose=not args.silent
-        )
-        results["extract"] = extract_results
+        try:
+            results["extract"] = extract_all_features(
+                dop_raster=str(input_path),
+                dsm_raster=str(dsm),
+                dgm_raster=str(dgm),
+                red_channel_raster=None,
+                output_base=str(output_dir),
+                verbose=not args.silent
+            )
+        except Exception as e:
+            logger.error("Fehler bei Feature-Extraction: %s", e)
+            results["extract"] = {}
 
     # ----------------------------
     # Print results

@@ -15,24 +15,16 @@ def data_dir() -> Path:
     return path
 
 
-def create_dummy_raster(path: Path, count=1, dtype="uint8", width=10, height=10) -> Path:
-    """Erstellt ein Dummy-Raster, das mit Rasterio gelesen werden kann."""
-
-    # Verzeichnis sicherstellen
+def create_dummy_raster(path, count=4, dtype="uint8", width=10, height=10):
     path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Dummy-Daten erzeugen
     if np.issubdtype(np.dtype(dtype), np.integer):
         data = np.random.randint(0, 255, size=(count, height, width), dtype=dtype)
-    elif np.issubdtype(np.dtype(dtype), np.floating):
-        data = np.random.random(size=(count, height, width)).astype(dtype)
     else:
-        raise ValueError(f"Unsupported dtype: {dtype}")
+        data = np.random.random((count, height, width)).astype(dtype)
 
-    # Transform definieren (links oben Ecke bei 0,0, Pixelgröße=1)
-    transform = from_origin(0, 0, 1, 1)
+    # Realistischer Transform für EPSG:25833
+    transform = from_origin(500000, 5800000, 1, 1)
 
-    # GeoTIFF schreiben
     with rasterio.open(
         path,
         "w",
@@ -45,7 +37,6 @@ def create_dummy_raster(path: Path, count=1, dtype="uint8", width=10, height=10)
         transform=transform,
     ) as dst:
         dst.write(data)
-
     return path
 
 
@@ -90,31 +81,37 @@ def test_cli_options(data_dir: Path):
         assert tif.exists()
 
 
-def test_cli_extract_option(data_dir: Path):
+def test_cli_extract_option(data_dir: Path, tmp_path: Path):
     """Testet die Feature-Extraction (--extract) mit DOP + DSM + DGM."""
 
-    # DOP-Raster: 4 Bänder (R,G,B,NIR)
-    dop = create_dummy_raster(data_dir / "dop.tif", count=4, dtype="uint8")
+    # Dummy-Raster erzeugen
+    dop = create_dummy_raster(tmp_path / "dop.tif", count=4, dtype="uint8")      # 4 Bänder: R,G,B,NIR
+    dsm = create_dummy_raster(tmp_path / "dsm.tif", count=1, dtype="float32")    # 1 Band
+    dgm = create_dummy_raster(tmp_path / "dgm.tif", count=1, dtype="float32")    # 1 Band
 
-    # DSM / DGM: 1 Band, float32
-    dsm = create_dummy_raster(data_dir / "dsm.tif", count=1, dtype="float32")
-    dgm = create_dummy_raster(data_dir / "dgm.tif", count=1, dtype="float32")
-
-    output_dir = data_dir
-
-    # Dateien existieren prüfen
+    # Sicherstellen, dass Dateien existieren
     assert dop.exists(), "DOP existiert nicht"
     assert dsm.exists(), "DSM existiert nicht"
     assert dgm.exists(), "DGM existiert nicht"
 
+    # Ausgabeordner
+    output_dir = tmp_path / "out"
+    output_dir.mkdir(exist_ok=True)
+
     argv = [
         str(dop),
         "--extract", str(dsm), str(dgm),
-        "--output", str(output_dir),
-        "--silent"
+        "--output", str(output_dir)
     ]
 
+    # CLI aufrufen
     results = main(argv)
 
-    assert "extract" in results
-    assert isinstance(results["extract"], dict)
+    # Ergebnisse prüfen
+    assert "extract" in results, "Key 'extract' fehlt in den Ergebnissen"
+    assert isinstance(results["extract"], dict), "extract ist kein Dictionary"
+
+    # Dateien existieren prüfen
+    for key, path_str in results["extract"].items():
+        path = Path(path_str)
+        assert path.exists(), f"{key} Shapefile wurde nicht erzeugt: {path}"

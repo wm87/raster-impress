@@ -1,16 +1,15 @@
-import glob
 import logging
-import os
+from pathlib import Path
 
 import fiona
 import numpy as np
-import rasterio
 from rasterio import features
-from rasterio.enums import Resampling
-from rasterio.warp import reproject
 from scipy.ndimage import binary_closing
 from shapely.geometry import shape, mapping
 from shapely.ops import unary_union
+
+from raster_impress.helper import cleanup_output, reproject_to_match
+from raster_impress.raster_analysis import compute_ndvi
 
 # Logger
 logger = logging.getLogger("raster_impress")
@@ -22,55 +21,7 @@ if not logger.handlers:
 logger.setLevel(logging.INFO)
 
 # ======================================================
-# 0️⃣ Output-Ordner säubern
-# ======================================================
-def cleanup_output(output_base, verbose: bool = True):
-    os.makedirs(output_base, exist_ok=True)
-    for ext in ["shp", "shx", "dbf", "prj", "cpg", "tif", "png"]:
-        for f in glob.glob(os.path.join(output_base, f"*{ext}")):
-            os.remove(f)
-    if verbose:
-        logger.info(f"✔ Output-Ordner gelöscht: {output_base}")
-
-# ======================================================
-# 1️⃣ NDVI berechnen
-# ======================================================
-def compute_ndvi(filepath):
-    with rasterio.open(filepath) as src:
-        r = src.read(1).astype(np.float32)
-        nir = src.read(4).astype(np.float32)
-        transform = src.transform
-        crs = src.crs
-        profile = src.profile
-
-    ndvi = (nir - r) / (nir + r)
-    ndvi[(nir + r) == 0] = np.nan
-    ndvi = np.clip(ndvi, -1, 1)
-
-    return ndvi, transform, crs, profile
-
-# ======================================================
-# 2️⃣ Raster reprojezieren + resamplen auf NDVI-Grid (Pixelgenau!)
-# ======================================================
-def reproject_to_match(path, ref_transform, ref_crs, ref_shape):
-    with rasterio.open(path) as src:
-        dst = np.zeros(ref_shape, dtype=np.float32)
-
-        reproject(
-            source=rasterio.band(src, 1),
-            destination=dst,
-            src_transform=src.transform,
-            src_crs=src.crs,
-            dst_transform=ref_transform,
-            dst_crs=ref_crs,
-            resampling=Resampling.bilinear
-        )
-
-    dst[dst == src.nodata] = np.nan
-    return dst
-
-# ======================================================
-# 3️⃣ Impervious surfaces extrahieren + kleine Löcher schließen
+# Impervious Surfaces extrahieren + kleine Löcher schließen
 # ======================================================
 def create_impervious_mask(dsm, dgm, transform, red_channel=None, min_hole_area_m2=20):
     height_diff = dsm - dgm
@@ -95,7 +46,7 @@ def create_impervious_mask(dsm, dgm, transform, red_channel=None, min_hole_area_
     return mask
 
 # ======================================================
-# 4️⃣ Shapefile speichern
+# Shape speichern
 # ======================================================
 def save_shapefile(mask, transform, crs, path, verbose: bool = True):
     polygons = [shape(geom) for geom, value in features.shapes(mask, mask == 1, transform=transform) if value == 1]
@@ -119,7 +70,7 @@ def save_shapefile(mask, transform, crs, path, verbose: bool = True):
         logger.info(f"✔ Shapefile gespeichert: {path}")
 
 # ======================================================
-# 4b️⃣ Impervious surfaces-Shapefile speichern mit Flächenfilter
+# Impervious Surfaces speichern (inkl. Flächenfilter)
 # ======================================================
 def save_impervious_surfaces_shapefile(mask, transform, crs, path, min_area_m2=20, verbose: bool = True):
     polygons = [shape(geom) for geom, value in features.shapes(mask, mask == 1, transform=transform) if value == 1]
@@ -148,22 +99,41 @@ def save_impervious_surfaces_shapefile(mask, transform, crs, path, min_area_m2=2
         logger.info(f"✔ Impervious surfaces-Shapefile gespeichert: {path}, {len(filtered_polys)} Polygone")
 
 # ======================================================
-# 5️⃣ Hauptprozess
+# Hauptprozess
 # ======================================================
-def extract_all_features(dop_raster, dsm_raster, dgm_raster, output_base, red_channel_raster=None, verbose: bool = True):
+def extract_all_features(dop_raster, dsm_raster, dgm_raster, output_base,
+                         red_channel_raster=None, verbose: bool = True):
+    dop_raster = Path(dop_raster).resolve()
+    dsm_raster = Path(dsm_raster).resolve()
+    dgm_raster = Path(dgm_raster).resolve()
+    output_base = Path(output_base).resolve()
+
+    if not dop_raster.exists():
+        raise FileNotFoundError(f"dop_raster not found: {dop_raster}")
+    if not dsm_raster.exists():
+        raise FileNotFoundError(f"dsm_raster not found: {dsm_raster}")
+    if not dgm_raster.exists():
+        raise FileNotFoundError(f"dgm_raster not found: {dgm_raster}")
+
+    output_base.mkdir(parents=True, exist_ok=True)
     cleanup_output(output_base, verbose=verbose)
 
     # --- NDVI ---
-    ndvi, ref_transform, ref_crs, ref_profile = compute_ndvi(dop_raster)
+    try:
+        result = compute_ndvi(str(dop_raster))
+        ndvi = result["ndvi"]
+        ref_transform = result["transform"]
+        ref_crs = result["crs"]
+    except Exception as e:
+        raise RuntimeError(f"Fehler beim Berechnen von NDVI: {e}")
+
+    # Jetzt kannst du die Form von ndvi korrekt verwenden
     shape_y, shape_x = ndvi.shape
     ref_shape = (shape_y, shape_x)
 
-    # Vegetation extrahieren
-    vegetation_mask = (ndvi > 0.3).astype(np.uint8)
-    save_shapefile(vegetation_mask, ref_transform, ref_crs,
-                   os.path.join(output_base, "vegetation.shp"), verbose=verbose)
+    vegetation_mask = np.array(ndvi >= 0.2, dtype=np.uint8)
+    save_shapefile(vegetation_mask, ref_transform, ref_crs, output_base / "vegetation.shp", verbose=verbose)
 
-    # --- DSM/DGM auf NDVI reprojezieren ---
     dsm = reproject_to_match(dsm_raster, ref_transform, ref_crs, ref_shape)
     dgm = reproject_to_match(dgm_raster, ref_transform, ref_crs, ref_shape)
 
@@ -171,19 +141,19 @@ def extract_all_features(dop_raster, dsm_raster, dgm_raster, output_base, red_ch
     if red_channel_raster:
         red_channel = reproject_to_match(red_channel_raster, ref_transform, ref_crs, ref_shape)
 
-    # --- Impervious surfaces ---
     impervious_mask = create_impervious_mask(dsm, dgm, ref_transform, red_channel, min_hole_area_m2=20)
     save_impervious_surfaces_shapefile(impervious_mask, ref_transform, ref_crs,
-                                       os.path.join(output_base, "impervious_surfaces.shp"),
+                                       output_base / "impervious_surfaces.shp",
                                        min_area_m2=20, verbose=verbose)
 
-    # --- Buildings = invertierte Vereinigung ---
     combined = np.logical_or(vegetation_mask == 1, impervious_mask == 1)
     building_mask = (~combined).astype(np.uint8)
-    building_mask[np.isnan(ndvi)] = 0  # keine weißen Pixel außerhalb des Bildes
+    building_mask[np.isnan(ndvi)] = 0
 
     save_shapefile(building_mask, ref_transform, ref_crs,
-                   os.path.join(output_base, "buildings.shp"), verbose=verbose)
+                   output_base / "buildings.shp", verbose=verbose)
 
-    if verbose:
-        logger.info("✔ Fertig: vegetation, impervious surfaces, buildings sind pixelgenau ausgerichtet.")
+    return {"vegetation": str(output_base / "vegetation.shp"),
+            "impervious_surfaces": str(output_base / "impervious_surfaces.shp"),
+            "buildings": str(output_base / "buildings.shp")
+    }

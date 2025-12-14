@@ -1,11 +1,11 @@
 import logging
-from typing import Optional, Dict, List
 import os
+from typing import Optional, Dict, List
+import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
-import matplotlib.pyplot as plt
-from matplotlib.colors import LightSource
 from PIL import Image
+from matplotlib.colors import LightSource
 from rasterstats import zonal_stats
 
 logger = logging.getLogger("raster_impress")
@@ -15,7 +15,6 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 logger.setLevel(logging.INFO)
-
 
 # ----------------------------
 # Basic raster statistics
@@ -38,11 +37,7 @@ def analyze_raster(filepath: str, verbose: bool = True) -> Dict[str, float]:
 # Histogram
 # ----------------------------
 def compute_histogram(
-    filepath: str,
-    output_tif: Optional[str] = None,
-    bins: int = 50,
-    verbose: bool = True,
-) -> Dict[str, object]:
+    filepath: str, output_tif: Optional[str] = None, bins: int = 50, verbose: bool = True) -> Dict[str, object]:
     with rasterio.open(filepath) as src:
         data = src.read(1)
         meta = src.meta.copy()
@@ -81,15 +76,17 @@ def compute_ndvi(filepath: str, output_tif: Optional[str] = None, verbose: bool 
     Farbpalette: dunkelrot -> dunkelgrün.
     """
     # -------------------------------
-    # 1) Raster laden (Rot + NIR)
+    # Raster laden (Rot + NIR)
     # -------------------------------
     with rasterio.open(filepath) as src:
-        r = src.read(1).astype(np.float32)   # Rotband
-        nir = src.read(4).astype(np.float32) # NIR-Band
-        profile = src.profile.copy()
+        r = src.read(1).astype(np.float32)
+        nir = src.read(4).astype(np.float32)
+        transform = src.transform
+        crs = src.crs
+        profile = src.profile
 
     # -------------------------------
-    # 2) NDVI berechnen (sicher)
+    # NDVI berechnen (sicher)
     # -------------------------------
     mask = (nir + r) == 0
     ndvi = np.empty_like(r, dtype=np.float32)
@@ -98,7 +95,7 @@ def compute_ndvi(filepath: str, output_tif: Optional[str] = None, verbose: bool 
     ndvi = np.clip(ndvi, -1, 1)
 
     # -------------------------------
-    # 3) NDVI in RGB umwandeln
+    # NDVI in RGB umwandeln
     # -------------------------------
     rgb = np.zeros((ndvi.shape[0], ndvi.shape[1], 3), dtype=np.uint8)
 
@@ -117,7 +114,7 @@ def compute_ndvi(filepath: str, output_tif: Optional[str] = None, verbose: bool 
     rgb[mask4] = [0, 100, 0]         # dunkelgrün
 
     # -------------------------------
-    # 4) GeoTIFF speichern
+    # GeoTIFF speichern
     # -------------------------------
     if output_tif is None:
         output_tif = os.path.splitext(filepath)[0] + "_ndvi_color.tif"
@@ -128,7 +125,7 @@ def compute_ndvi(filepath: str, output_tif: Optional[str] = None, verbose: bool 
             dst.write(rgb[:, :, i], i + 1)
 
     # -------------------------------
-    # 5) PNG speichern
+    # PNG speichern
     # -------------------------------
     png_path = os.path.splitext(output_tif)[0] + ".png"
     plt.figure(figsize=(12, 8))
@@ -142,18 +139,10 @@ def compute_ndvi(filepath: str, output_tif: Optional[str] = None, verbose: bool 
         print(f"✔ Farbiges NDVI GeoTIFF gespeichert: {output_tif}")
         print(f"✔ NDVI PNG gespeichert: {png_path}")
 
-    # -------------------------------
-    # 6) Rückgabe
-    # -------------------------------
-    return {
-        "ndvi": ndvi,
-        "tif": output_tif,
-        "plot": png_path,
-        "rgb_array": rgb
-    }
+    return {"ndvi": ndvi, "transform": transform, "crs": crs,"profile": profile,"output_tif": output_tif,"png_path": png_path}
 
 # ----------------------------
-# 1) Slope berechnen
+# Slope berechnen
 # ----------------------------
 def compute_slope(filepath: str, output_tif: str = None, verbose: bool = True) -> dict:
 
@@ -192,7 +181,7 @@ def compute_slope(filepath: str, output_tif: str = None, verbose: bool = True) -
     return {"slope_deg": slope_deg, "png": png_file, "tif": output_tif}
 
 # ----------------------------
-# 2) Hillshade berechnen
+# Hillshade berechnen
 # ----------------------------
 def compute_hillshade(filepath: str, output_tif: str = None, azimuth: float = 315, altitude: float = 45, verbose: bool = True) -> dict:
 
@@ -225,7 +214,7 @@ def compute_hillshade(filepath: str, output_tif: str = None, azimuth: float = 31
     return {"hillshade": hillshade, "png": png_file, "tif": output_tif}
 
 # ----------------------------
-# 3) Plastisches Relief berechnen
+# Plastisches Relief berechnen
 # ----------------------------
 def compute_relief(filepath: str, output_tif: str = None, verbose: bool = True) -> dict:
 
@@ -353,4 +342,3 @@ def compute_zonal_stats(raster_path: str, vector_path: str,
         for i, zone in enumerate(zs):
             logger.info("Zone %d: %s", i, zone["properties"])
     return zs
-

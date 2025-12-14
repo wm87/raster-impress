@@ -36,3 +36,19 @@ def create_dummy_raster(
             dst.write(data[i], i + 1)
 
     return filepath
+
+
+def create_dummy_dem(path, shape=(10, 10), value=2.0):
+    from rasterio.transform import from_origin
+    import rasterio
+    data = np.full(shape, value, dtype=np.float32)
+    transform = from_origin(0, shape[0], 1, 1)
+    with rasterio.open(
+        path, "w", driver="GTiff",
+        height=shape[0], width=shape[1],
+        count=1, dtype=np.float32,
+        crs="EPSG:4326",
+        transform=transform
+    ) as dst:
+        dst.write(data, 1)
+    return path
