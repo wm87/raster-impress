@@ -1,5 +1,14 @@
 # Raster Impress CLI
 
+![GeoTIFF](https://img.shields.io/badge/format-GeoTIFF-green)
+![Raster Analysis](https://img.shields.io/badge/GIS-Raster%20Analysis-success)
+![NDVI](https://img.shields.io/badge/index-NDVI-darkgreen)
+![DEM](https://img.shields.io/badge/data-DEM%20%2F%20DSM-brown)
+
+![Python Version](https://img.shields.io/badge/python-3.11+-blue)
+![Platform](https://img.shields.io/badge/platform-linux-lightgrey)
+![CLI Tool](https://img.shields.io/badge/interface-CLI-black)
+
 **Raster Impress CLI** ist ein Kommandozeilen-Tool für die Analyse von Rasterdaten (z.B. GeoTIFF) unter Linux.
 
 Es liefert:
